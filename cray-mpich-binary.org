@@ -1,0 +1,677 @@
+#+OPTIONS: toc:3
+
+upload to:
+https://jfrog.svc.cscs.ch/ui/repos/tree/General/cray-mpich
+
+download from:
+# https://nexus.cmn.alps.cscs.ch/service/rest/repository/browse/cpe-22.08-sles15-sp3/
+https://nexus.cmn.alps.cscs.ch/service/rest/repository/browse/cpe-23.02-sles15-sp3/
+
+* checksums
+
+#+begin_src bash
+  sha256sum gnu/cray-mpich*tar.gz
+  sha256sum nvhpc/cray-mpich*tar.gz
+#+end_src
+
+#+RESULTS:
+| 3da0e421c3faaadbe18e57dd033b0ec6513e0d9ed7fbfa77f05a02bada4cd483 | gnu/cray-mpich-8.1.24-gcc.tar.gz     |
+| 1b507f4e9150cf188a0571aad0d190fc8ee981def1d6198c998673d73828ed6f | nvhpc/cray-mpich-8.1.24-nvhpc.tar.gz |
+
+
+* CPE-23.02
+:PROPERTIES:
+:CPE_VERSION: 23.02
+:MPICH_VERSION: 8.1.24
+:PMI_VERSION: 6.1.9
+:CURL_PROXY: --socks5-hostname localhost:8086
+:END:
+
+Not working, just returns 404
+#+HEADER: :var curl_proxy=(org-entry-get nil "CURL_PROXY" 1)
+#+begin_src bash :results output raw drawer
+  # Not working, just returns 404
+  curl -sk ${curl_proxy} -w "${http_code}" https://nexus.cmn.alps.cscs.ch/repository/cpe-23.02-sles15-sp3/
+#+end_src
+
+
+** GNU cray-mpich-binary
+:PROPERTIES:
+:WORKING_DIR: gnu
+:END:
+
+*** Download rpms
+
+#+HEADER: :tangle gnu-download-rpms.sh
+#+begin_src bash
+  mkdir -p gnu
+  rm -rf gnu/*
+#+end_src
+
+#+RESULTS:
+
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1) curl_proxy=(org-entry-get nil "CURL_PROXY" 1) cpe_ver=(org-entry-get nil "CPE_VERSION" 1)
+#+HEADER: :tangle gnu-download-rpms.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash  :results output raw drawer
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-mpich-${mpich_ver}-gtl-0-16.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-mpich-${mpich_ver}-gnu91-0-16.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-pmi-${pmi_ver}-0-10.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-pmi-devel-${pmi_ver}-0-10.sles15sp3.x86_64.rpm
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+*** Check diff of mpicc, mpic++, mpifort
+
+
+the new sysconfigdir (=$prefix/etc=) does not exist!!
+
+#+begin_src bash :results output raw drawer
+  _bin=mpicc
+  diff -bB mpi_wrappers/${_bin} gnu/cray-mpich-binary/bin/${_bin} || true
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+*** Unpack
+
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :tangle gnu-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :results output raw drawer
+  rm -rf opt/
+  # GCC
+  for rpm in *.rpm
+  do
+      rpm2cpio ${rpm} | cpio -idmv
+  done
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+*** tree
+
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :results output raw drawer
+ tree opt
+#+end_src
+
+#+RESULTS:
+:results:
+opt
+└── cray
+    └── pe
+        ├── admin-pe
+        │   └── set_default_files
+        │       ├── set_default_mpich_8.1.24
+        │       └── set_default_pmi_6.1.9
+        ├── lmod
+        │   └── modulefiles
+        │       ├── comnet
+        │       │   └── gnu
+        │       │       └── 8.0
+        │       │           └── ofi
+        │       │               └── 1.0
+        │       │                   ├── cray-mpich
+        │       │                   │   └── 8.1.24.lua
+        │       │                   └── cray-mpich-abi
+        │       │                       └── 8.1.24.lua
+        │       └── core
+        │           └── cray-pmi
+        │               └── 6.1.9.lua
+        ├── modulefiles
+        │   ├── cray-mpich
+        │   │   └── 8.1.24
+        │   ├── cray-mpich-abi
+        │   │   └── 8.1.24
+        │   └── cray-pmi
+        │       └── 6.1.9
+        ├── mpich
+        │   └── 8.1.24
+        │       ├── gtl
+        │       │   └── lib
+        │       │       ├── libmpi_gtl_cuda.a
+        │       │       ├── libmpi_gtl_cuda.so -> libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_cuda.so.0 -> libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.a
+        │       │       ├── libmpi_gtl_hsa.so -> libmpi_gtl_hsa.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.so.0 -> libmpi_gtl_hsa.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.so.0.0.0
+        │       │       └── pkgconfig
+        │       │           ├── cray-gtl-cuda.pc
+        │       │           └── cray-gtl-hsa.pc
+        │       ├── ofi
+        │       │   ├── gnu
+        │       │   │   └── 9.1
+        │       │   │       ├── bin
+        │       │   │       │   ├── cray_spawn_server
+        │       │   │       │   ├── mpic++ -> mpicxx
+        │       │   │       │   ├── mpicc
+        │       │   │       │   ├── mpichversion
+        │       │   │       │   ├── mpicxx
+        │       │   │       │   ├── mpif77 -> mpifort
+        │       │   │       │   ├── mpif90 -> mpifort
+        │       │   │       │   └── mpifort
+        │       │   │       ├── include
+        │       │   │       │   ├── cray_version.h
+        │       │   │       │   ├── mpi_base.mod
+        │       │   │       │   ├── mpi_c_interface_cdesc.mod
+        │       │   │       │   ├── mpi_c_interface_glue.mod
+        │       │   │       │   ├── mpi_c_interface.mod
+        │       │   │       │   ├── mpi_c_interface_nobuf.mod
+        │       │   │       │   ├── mpi_c_interface_types.mod
+        │       │   │       │   ├── mpi_constants.mod
+        │       │   │       │   ├── mpi_f08_callbacks.mod
+        │       │   │       │   ├── mpi_f08_compile_constants.mod
+        │       │   │       │   ├── mpi_f08_link_constants.mod
+        │       │   │       │   ├── mpi_f08.mod
+        │       │   │       │   ├── mpi_f08_types.mod
+        │       │   │       │   ├── mpif.h
+        │       │   │       │   ├── mpi.h
+        │       │   │       │   ├── mpi.mod
+        │       │   │       │   ├── mpiof.h
+        │       │   │       │   ├── mpio.h
+        │       │   │       │   ├── mpi_sizeofs.mod
+        │       │   │       │   └── pmpi_f08.mod
+        │       │   │       ├── lib
+        │       │   │       │   ├── libfmpich.so -> libmpifort_gnu_91.so
+        │       │   │       │   ├── libmpi.a -> libmpi_gnu_91.a
+        │       │   │       │   ├── libmpich.a -> libmpi_gnu_91.a
+        │       │   │       │   ├── libmpichf90.a -> libmpifort_gnu_91.a
+        │       │   │       │   ├── libmpichf90.so -> libmpifort_gnu_91.so
+        │       │   │       │   ├── libmpich.so -> libmpi_gnu_91.so
+        │       │   │       │   ├── libmpifort.a -> libmpifort_gnu_91.a
+        │       │   │       │   ├── libmpifort_gnu_91.a
+        │       │   │       │   ├── libmpifort_gnu_91.so -> libmpifort_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpifort_gnu_91.so.12 -> libmpifort_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpifort_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpifort.so -> libmpifort_gnu_91.so
+        │       │   │       │   ├── libmpi_gnu_91.a
+        │       │   │       │   ├── libmpi_gnu_91.so -> libmpi_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpi_gnu_91.so.12 -> libmpi_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpi_gnu_91.so.12.0.0
+        │       │   │       │   ├── libmpi.so -> libmpi_gnu_91.so
+        │       │   │       │   ├── libmpl.so -> libmpi_gnu_91.so
+        │       │   │       │   ├── libopa.so -> libmpi_gnu_91.so
+        │       │   │       │   ├── libtvmpich.a
+        │       │   │       │   ├── libtvmpich.so -> libtvmpich.so.12.0.0
+        │       │   │       │   ├── libtvmpich.so.12 -> libtvmpich.so.12.0.0
+        │       │   │       │   ├── libtvmpich.so.12.0.0
+        │       │   │       │   └── pkgconfig
+        │       │   │       │       ├── mpichf90.pc
+        │       │   │       │       └── mpich.pc
+        │       │   │       └── lib-abi-mpich
+        │       │   │           ├── libmpifort.so.12 -> ../lib/libmpifort_gnu_91.so.12
+        │       │   │           └── libmpi.so.12 -> ../lib/libmpi_gnu_91.so.12
+        │       │   └── GNU -> gnu
+        │       ├── set_default_mpich_8.1.24
+        │       └── set_pkgconfig_default_mpich
+        └── pmi
+            └── 6.1.9
+                ├── ATTRIBUTIONS
+                ├── COPYRIGHT
+                ├── include
+                │   ├── pmi2.h
+                │   ├── pmi_cray_ext.h
+                │   ├── pmi_cray.h
+                │   ├── pmi.h
+                │   └── pmi_version.h
+                ├── lib
+                │   ├── libpmi2.a
+                │   ├── libpmi2.so -> libpmi2.so.0.6.0
+                │   ├── libpmi2.so.0 -> libpmi2.so.0.6.0
+                │   ├── libpmi2.so.0.6.0
+                │   ├── libpmi.a -> libpmi2.a
+                │   ├── libpmi.so -> libpmi.so.0.6.0
+                │   ├── libpmi.so.0 -> libpmi.so.0.6.0
+                │   ├── libpmi.so.0.6.0
+                │   └── pkgconfig
+                │       └── cray-pmi.pc
+                ├── release_info
+                └── set_default_pmi_6.1.9
+
+39 directories, 93 files
+:end:
+
+*** copy files to new directory structure
+
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :tangle gnu-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :results output raw drawer
+  set -e
+  # create directory (remove first if exists already)
+  rm -rf cray-mpich-binary && mkdir cray-mpich-binary
+
+  mkdir -p cray-mpich-binary/lib  cray-mpich-binary/bin cray-mpich-binary/include
+  #find  opt/cray/pe/mpich/8.1.21/gtl/lib/ -maxdepth 1 -type f -o -type l
+
+  find  opt/cray/pe/mpich/${mpich_ver}/gtl/lib/ -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/mpich/${mpich_ver}/gtl/lib/ -maxdepth 1 -type f -o -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  # ofi gnu
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/gnu/9.1/bin -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/bin \;
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/gnu/9.1/bin -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/bin \;
+
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/gnu/9.1/include -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/include \;
+
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/gnu/9.1/lib -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/gnu/9.1/lib -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  # mpi
+  find  opt/cray/pe/pmi/${pmi_ver}/lib -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/pmi/${pmi_ver}/lib -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  find  opt/cray/pe/pmi/${pmi_ver}/include -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/include \;
+
+#+end_src
+
+#+RESULTS:
+:results:
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.a' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.a'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.a' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.a'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so.0.0.0' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so.0.0.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so.0.0.0' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so.0.0.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so.0' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so.0' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpifort' -> 'cray-mpich-binary/bin/mpifort'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpicxx' -> 'cray-mpich-binary/bin/mpicxx'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/cray_spawn_server' -> 'cray-mpich-binary/bin/cray_spawn_server'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpicc' -> 'cray-mpich-binary/bin/mpicc'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpichversion' -> 'cray-mpich-binary/bin/mpichversion'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpic++' -> 'cray-mpich-binary/bin/mpic++'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpif90' -> 'cray-mpich-binary/bin/mpif90'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/bin/mpif77' -> 'cray-mpich-binary/bin/mpif77'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_c_interface_nobuf.mod' -> 'cray-mpich-binary/include/mpi_c_interface_nobuf.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpif.h' -> 'cray-mpich-binary/include/mpif.h'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_c_interface.mod' -> 'cray-mpich-binary/include/mpi_c_interface.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_f08_compile_constants.mod' -> 'cray-mpich-binary/include/mpi_f08_compile_constants.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_f08_link_constants.mod' -> 'cray-mpich-binary/include/mpi_f08_link_constants.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_c_interface_cdesc.mod' -> 'cray-mpich-binary/include/mpi_c_interface_cdesc.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_constants.mod' -> 'cray-mpich-binary/include/mpi_constants.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_sizeofs.mod' -> 'cray-mpich-binary/include/mpi_sizeofs.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_f08_callbacks.mod' -> 'cray-mpich-binary/include/mpi_f08_callbacks.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/pmpi_f08.mod' -> 'cray-mpich-binary/include/pmpi_f08.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi.mod' -> 'cray-mpich-binary/include/mpi.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpio.h' -> 'cray-mpich-binary/include/mpio.h'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_f08.mod' -> 'cray-mpich-binary/include/mpi_f08.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_base.mod' -> 'cray-mpich-binary/include/mpi_base.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/cray_version.h' -> 'cray-mpich-binary/include/cray_version.h'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_c_interface_types.mod' -> 'cray-mpich-binary/include/mpi_c_interface_types.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_c_interface_glue.mod' -> 'cray-mpich-binary/include/mpi_c_interface_glue.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi.h' -> 'cray-mpich-binary/include/mpi.h'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpiof.h' -> 'cray-mpich-binary/include/mpiof.h'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/include/mpi_f08_types.mod' -> 'cray-mpich-binary/include/mpi_f08_types.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi_gnu_91.so.12.0.0' -> 'cray-mpich-binary/lib/libmpi_gnu_91.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort_gnu_91.a' -> 'cray-mpich-binary/lib/libmpifort_gnu_91.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort_gnu_91.so.12.0.0' -> 'cray-mpich-binary/lib/libmpifort_gnu_91.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libtvmpich.so.12.0.0' -> 'cray-mpich-binary/lib/libtvmpich.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libtvmpich.a' -> 'cray-mpich-binary/lib/libtvmpich.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi_gnu_91.a' -> 'cray-mpich-binary/lib/libmpi_gnu_91.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpich.a' -> 'cray-mpich-binary/lib/libmpich.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libtvmpich.so.12' -> 'cray-mpich-binary/lib/libtvmpich.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libopa.so' -> 'cray-mpich-binary/lib/libopa.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi.so' -> 'cray-mpich-binary/lib/libmpi.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpichf90.a' -> 'cray-mpich-binary/lib/libmpichf90.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi_gnu_91.so.12' -> 'cray-mpich-binary/lib/libmpi_gnu_91.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpichf90.so' -> 'cray-mpich-binary/lib/libmpichf90.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi.a' -> 'cray-mpich-binary/lib/libmpi.a'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpi_gnu_91.so' -> 'cray-mpich-binary/lib/libmpi_gnu_91.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpl.so' -> 'cray-mpich-binary/lib/libmpl.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpich.so' -> 'cray-mpich-binary/lib/libmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort_gnu_91.so' -> 'cray-mpich-binary/lib/libmpifort_gnu_91.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort_gnu_91.so.12' -> 'cray-mpich-binary/lib/libmpifort_gnu_91.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort.so' -> 'cray-mpich-binary/lib/libmpifort.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libfmpich.so' -> 'cray-mpich-binary/lib/libfmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libtvmpich.so' -> 'cray-mpich-binary/lib/libtvmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/gnu/9.1/lib/libmpifort.a' -> 'cray-mpich-binary/lib/libmpifort.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.a' -> 'cray-mpich-binary/lib/libpmi2.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so.0.6.0' -> 'cray-mpich-binary/lib/libpmi.so.0.6.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so.0.6.0' -> 'cray-mpich-binary/lib/libpmi2.so.0.6.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so.0' -> 'cray-mpich-binary/lib/libpmi.so.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.a' -> 'cray-mpich-binary/lib/libpmi.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so' -> 'cray-mpich-binary/lib/libpmi.so'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so' -> 'cray-mpich-binary/lib/libpmi2.so'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so.0' -> 'cray-mpich-binary/lib/libpmi2.so.0'
+'opt/cray/pe/pmi/6.1.9/include/pmi_cray.h' -> 'cray-mpich-binary/include/pmi_cray.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi.h' -> 'cray-mpich-binary/include/pmi.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi2.h' -> 'cray-mpich-binary/include/pmi2.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi_version.h' -> 'cray-mpich-binary/include/pmi_version.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi_cray_ext.h' -> 'cray-mpich-binary/include/pmi_cray_ext.h'
+:end:
+
+*** apply patches for mpiwrappers
+done manually
+
+TODO wrappers contain variable MPICH_VERSION, change it manually in [[file:mpi_wrappers]]
+
+#+HEADER: :var mpich_version=(org-entry-get nil "MPICH_VERSION" 1) pmi_version=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :tangle gnu-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash
+  cp ../mpi_wrappers/mpicc ../mpi_wrappers/mpicxx ../mpi_wrappers/mpifort cray-mpich-binary/bin
+#+end_src
+
+#+RESULTS:
+
+*** tar gcc
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1)
+#+HEADER: :tangle gnu-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash
+  tar -czf cray-mpich-${mpich_ver}-gcc.tar.gz -C cray-mpich-binary .
+#+end_src
+
+#+RESULTS:
+
+
+** NVHPC cray-mpich-binary
+:PROPERTIES:
+:WORKING_DIR: nvhpc
+:END:
+
+*** Download rpms
+#+HEADER: :tangle nvhpc-download-rpms.sh
+#+begin_src bash
+  mkdir -p nvhpc
+  rm -rf nvhpc/*
+#+end_src
+
+#+RESULTS:
+
+
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1) curl_proxy=(org-entry-get nil "CURL_PROXY" 1) cpe_ver=(org-entry-get nil "CPE_VERSION" 1)
+#+HEADER: :tangle nvhpc-download-rpms.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash  :results output raw drawer
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-mpich-${mpich_ver}-gtl-0-16.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-pmi-${pmi_ver}-0-10.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-mpich-${mpich_ver}-nvidia207-0-16.sles15sp3.x86_64.rpm
+  curl -ks ${curl_proxy} -O https://nexus.cmn.alps.cscs.ch/repository/cpe-${cpe_ver}-sles15-sp3/cray-pmi-devel-${pmi_ver}-0-10.sles15sp3.x86_64.rpm
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+*** Unpack
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :tangle nvhpc-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :results output raw drawer
+  rm -rf opt/
+  # GCC
+  for rpm in *.rpm
+  do
+      rpm2cpio ${rpm} | cpio -idmv
+  done
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+*** tree
+
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :results output raw drawer
+ tree opt
+#+end_src
+
+#+RESULTS:
+:results:
+opt
+└── cray
+    └── pe
+        ├── admin-pe
+        │   └── set_default_files
+        │       ├── set_default_mpich_8.1.24
+        │       └── set_default_pmi_6.1.9
+        ├── lmod
+        │   └── modulefiles
+        │       ├── comnet
+        │       │   └── nvidia
+        │       │       └── 20
+        │       │           └── ofi
+        │       │               └── 1.0
+        │       │                   ├── cray-mpich
+        │       │                   │   └── 8.1.24.lua
+        │       │                   └── cray-mpich-abi
+        │       │                       └── 8.1.24.lua
+        │       └── core
+        │           └── cray-pmi
+        │               └── 6.1.9.lua
+        ├── modulefiles
+        │   ├── cray-mpich
+        │   │   └── 8.1.24
+        │   ├── cray-mpich-abi
+        │   │   └── 8.1.24
+        │   └── cray-pmi
+        │       └── 6.1.9
+        ├── mpich
+        │   └── 8.1.24
+        │       ├── gtl
+        │       │   └── lib
+        │       │       ├── libmpi_gtl_cuda.a
+        │       │       ├── libmpi_gtl_cuda.so -> libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_cuda.so.0 -> libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_cuda.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.a
+        │       │       ├── libmpi_gtl_hsa.so -> libmpi_gtl_hsa.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.so.0 -> libmpi_gtl_hsa.so.0.0.0
+        │       │       ├── libmpi_gtl_hsa.so.0.0.0
+        │       │       └── pkgconfig
+        │       │           ├── cray-gtl-cuda.pc
+        │       │           └── cray-gtl-hsa.pc
+        │       ├── ofi
+        │       │   ├── nvidia
+        │       │   │   └── 20.7
+        │       │   │       ├── bin
+        │       │   │       │   ├── cray_spawn_server
+        │       │   │       │   ├── mpic++ -> mpicxx
+        │       │   │       │   ├── mpicc
+        │       │   │       │   ├── mpichversion
+        │       │   │       │   ├── mpicxx
+        │       │   │       │   ├── mpif77 -> mpifort
+        │       │   │       │   ├── mpif90 -> mpifort
+        │       │   │       │   └── mpifort
+        │       │   │       ├── include
+        │       │   │       │   ├── cray_version.h
+        │       │   │       │   ├── mpi_base.mod
+        │       │   │       │   ├── mpi_constants.mod
+        │       │   │       │   ├── mpif.h
+        │       │   │       │   ├── mpi.h
+        │       │   │       │   ├── mpi.mod
+        │       │   │       │   ├── mpiof.h
+        │       │   │       │   ├── mpio.h
+        │       │   │       │   └── mpi_sizeofs.mod
+        │       │   │       ├── lib
+        │       │   │       │   ├── libfmpich.so -> libmpifort_nvidia.so
+        │       │   │       │   ├── libmpi.a -> libmpi_nvidia.a
+        │       │   │       │   ├── libmpich.a -> libmpi_nvidia.a
+        │       │   │       │   ├── libmpichf90.a -> libmpifort_nvidia.a
+        │       │   │       │   ├── libmpichf90.so -> libmpifort_nvidia.so
+        │       │   │       │   ├── libmpich.so -> libmpi_nvidia.so
+        │       │   │       │   ├── libmpifort.a -> libmpifort_nvidia.a
+        │       │   │       │   ├── libmpifort_nvidia.a
+        │       │   │       │   ├── libmpifort_nvidia.so -> libmpifort_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpifort_nvidia.so.12 -> libmpifort_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpifort_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpifort.so -> libmpifort_nvidia.so
+        │       │   │       │   ├── libmpi_nvidia.a
+        │       │   │       │   ├── libmpi_nvidia.so -> libmpi_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpi_nvidia.so.12 -> libmpi_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpi_nvidia.so.12.0.0
+        │       │   │       │   ├── libmpi.so -> libmpi_nvidia.so
+        │       │   │       │   ├── libmpl.so -> libmpi_nvidia.so
+        │       │   │       │   ├── libopa.so -> libmpi_nvidia.so
+        │       │   │       │   ├── libtvmpich.a
+        │       │   │       │   ├── libtvmpich.so -> libtvmpich.so.12.0.0
+        │       │   │       │   ├── libtvmpich.so.12 -> libtvmpich.so.12.0.0
+        │       │   │       │   ├── libtvmpich.so.12.0.0
+        │       │   │       │   └── pkgconfig
+        │       │   │       │       ├── mpichf90.pc
+        │       │   │       │       └── mpich.pc
+        │       │   │       └── lib-abi-mpich
+        │       │   │           ├── libmpifort.so.12 -> ../lib/libmpifort_nvidia.so.12
+        │       │   │           └── libmpi.so.12 -> ../lib/libmpi_nvidia.so.12
+        │       │   └── NVIDIA -> nvidia
+        │       ├── set_default_mpich_8.1.24
+        │       └── set_pkgconfig_default_mpich
+        └── pmi
+            └── 6.1.9
+                ├── ATTRIBUTIONS
+                ├── COPYRIGHT
+                ├── include
+                │   ├── pmi2.h
+                │   ├── pmi_cray_ext.h
+                │   ├── pmi_cray.h
+                │   ├── pmi.h
+                │   └── pmi_version.h
+                ├── lib
+                │   ├── libpmi2.a
+                │   ├── libpmi2.so -> libpmi2.so.0.6.0
+                │   ├── libpmi2.so.0 -> libpmi2.so.0.6.0
+                │   ├── libpmi2.so.0.6.0
+                │   ├── libpmi.a -> libpmi2.a
+                │   ├── libpmi.so -> libpmi.so.0.6.0
+                │   ├── libpmi.so.0 -> libpmi.so.0.6.0
+                │   ├── libpmi.so.0.6.0
+                │   └── pkgconfig
+                │       └── cray-pmi.pc
+                ├── release_info
+                └── set_default_pmi_6.1.9
+
+39 directories, 82 files
+:end:
+
+*** copy files to new directory structure
+
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1) pmi_ver=(org-entry-get nil "PMI_VERSION" 1)
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+HEADER: :tangle nvhpc-create-cray-mpich.sh
+#+begin_src bash :results output raw drawer
+  set -e
+
+  # create directory (remove first if exists already)
+  rm -rf cray-mpich-binary && mkdir cray-mpich-binary
+
+  mkdir -p cray-mpich-binary/lib  cray-mpich-binary/bin cray-mpich-binary/include
+  #find  opt/cray/pe/mpich/8.1.21/gtl/lib/ -maxdepth 1 -type f -o -type l
+
+  find  opt/cray/pe/mpich/${mpich_ver}/gtl/lib/ -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/mpich/${mpich_ver}/gtl/lib/ -maxdepth 1 -type f -o -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  # ofi gnu
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/nvidia/20.7/bin -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/bin \;
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/nvidia/20.7/bin -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/bin \;
+
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/nvidia/20.7/include -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/include \;
+
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/nvidia/20.7/lib -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/mpich/${mpich_ver}/ofi/nvidia/20.7/lib -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  # mpi
+  find  opt/cray/pe/pmi/${pmi_ver}/lib -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/lib \;
+  find  opt/cray/pe/pmi/${pmi_ver}/lib -maxdepth 1 -type l -exec cp -dv {} cray-mpich-binary/lib \;
+
+  find  opt/cray/pe/pmi/${pmi_ver}/include -maxdepth 1 -type f -exec cp -dv {} cray-mpich-binary/include \;
+
+#+end_src
+
+#+RESULTS:
+:results:
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.a' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.a'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.a' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.a'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so.0.0.0' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so.0.0.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so.0.0.0' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so.0.0.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so.0' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so.0' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so.0'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_hsa.so' -> 'cray-mpich-binary/lib/libmpi_gtl_hsa.so'
+'opt/cray/pe/mpich/8.1.24/gtl/lib/libmpi_gtl_cuda.so' -> 'cray-mpich-binary/lib/libmpi_gtl_cuda.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpifort' -> 'cray-mpich-binary/bin/mpifort'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpicxx' -> 'cray-mpich-binary/bin/mpicxx'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/cray_spawn_server' -> 'cray-mpich-binary/bin/cray_spawn_server'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpicc' -> 'cray-mpich-binary/bin/mpicc'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpichversion' -> 'cray-mpich-binary/bin/mpichversion'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpic++' -> 'cray-mpich-binary/bin/mpic++'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpif90' -> 'cray-mpich-binary/bin/mpif90'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/bin/mpif77' -> 'cray-mpich-binary/bin/mpif77'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpif.h' -> 'cray-mpich-binary/include/mpif.h'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpi_constants.mod' -> 'cray-mpich-binary/include/mpi_constants.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpi_sizeofs.mod' -> 'cray-mpich-binary/include/mpi_sizeofs.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpi.mod' -> 'cray-mpich-binary/include/mpi.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpio.h' -> 'cray-mpich-binary/include/mpio.h'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpi_base.mod' -> 'cray-mpich-binary/include/mpi_base.mod'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/cray_version.h' -> 'cray-mpich-binary/include/cray_version.h'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpi.h' -> 'cray-mpich-binary/include/mpi.h'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/include/mpiof.h' -> 'cray-mpich-binary/include/mpiof.h'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi_nvidia.a' -> 'cray-mpich-binary/lib/libmpi_nvidia.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libtvmpich.so.12.0.0' -> 'cray-mpich-binary/lib/libtvmpich.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libtvmpich.a' -> 'cray-mpich-binary/lib/libtvmpich.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi_nvidia.so.12.0.0' -> 'cray-mpich-binary/lib/libmpi_nvidia.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort_nvidia.so.12.0.0' -> 'cray-mpich-binary/lib/libmpifort_nvidia.so.12.0.0'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort_nvidia.a' -> 'cray-mpich-binary/lib/libmpifort_nvidia.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpich.a' -> 'cray-mpich-binary/lib/libmpich.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libtvmpich.so.12' -> 'cray-mpich-binary/lib/libtvmpich.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort_nvidia.so.12' -> 'cray-mpich-binary/lib/libmpifort_nvidia.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libopa.so' -> 'cray-mpich-binary/lib/libopa.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi_nvidia.so.12' -> 'cray-mpich-binary/lib/libmpi_nvidia.so.12'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi.so' -> 'cray-mpich-binary/lib/libmpi.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpichf90.a' -> 'cray-mpich-binary/lib/libmpichf90.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpichf90.so' -> 'cray-mpich-binary/lib/libmpichf90.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi.a' -> 'cray-mpich-binary/lib/libmpi.a'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpl.so' -> 'cray-mpich-binary/lib/libmpl.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpich.so' -> 'cray-mpich-binary/lib/libmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort.so' -> 'cray-mpich-binary/lib/libmpifort.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpi_nvidia.so' -> 'cray-mpich-binary/lib/libmpi_nvidia.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libfmpich.so' -> 'cray-mpich-binary/lib/libfmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort_nvidia.so' -> 'cray-mpich-binary/lib/libmpifort_nvidia.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libtvmpich.so' -> 'cray-mpich-binary/lib/libtvmpich.so'
+'opt/cray/pe/mpich/8.1.24/ofi/nvidia/20.7/lib/libmpifort.a' -> 'cray-mpich-binary/lib/libmpifort.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.a' -> 'cray-mpich-binary/lib/libpmi2.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so.0.6.0' -> 'cray-mpich-binary/lib/libpmi.so.0.6.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so.0.6.0' -> 'cray-mpich-binary/lib/libpmi2.so.0.6.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so.0' -> 'cray-mpich-binary/lib/libpmi.so.0'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.a' -> 'cray-mpich-binary/lib/libpmi.a'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi.so' -> 'cray-mpich-binary/lib/libpmi.so'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so' -> 'cray-mpich-binary/lib/libpmi2.so'
+'opt/cray/pe/pmi/6.1.9/lib/libpmi2.so.0' -> 'cray-mpich-binary/lib/libpmi2.so.0'
+'opt/cray/pe/pmi/6.1.9/include/pmi_cray.h' -> 'cray-mpich-binary/include/pmi_cray.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi.h' -> 'cray-mpich-binary/include/pmi.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi2.h' -> 'cray-mpich-binary/include/pmi2.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi_version.h' -> 'cray-mpich-binary/include/pmi_version.h'
+'opt/cray/pe/pmi/6.1.9/include/pmi_cray_ext.h' -> 'cray-mpich-binary/include/pmi_cray_ext.h'
+:end:
+*** apply patches for mpiwrappers
+done manually
+
+TODO wrappers contain variable MPICH_VERSION, change it manually in [[file:mpi_wrappers]]
+
+#+HEADER: :tangle nvhpc-create-cray-mpich.sh
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash
+  cp ../mpi_wrappers/mpicc ../mpi_wrappers/mpicxx ../mpi_wrappers/mpifort cray-mpich-binary/bin
+#+end_src
+
+#+RESULTS:
+
+*** tar nvhpc
+#+HEADER: :var mpich_ver=(org-entry-get nil "MPICH_VERSION" 1)
+#+HEADER: :dir (org-entry-get nil "WORKING_DIR" 1)
+#+begin_src bash :tangle nvhpc-create-cray-mpich.sh
+  tar -czf cray-mpich-${mpich_ver}-nvhpc.tar.gz -C cray-mpich-binary .
+#+end_src
+
+#+RESULTS:
